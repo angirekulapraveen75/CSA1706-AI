@@ -1,0 +1,81 @@
+import math
+from collections import Counter
+
+# Sample dataset
+dataset = [
+    {'Age': '<=30', 'Income': 'High',    'Student': 'No',  'Credit': 'Fair',     'Buys': 'No'},
+    {'Age': '<=30', 'Income': 'High',    'Student': 'No',  'Credit': 'Excellent','Buys': 'No'},
+    {'Age': '31..40','Income': 'High',   'Student': 'No',  'Credit': 'Fair',     'Buys': 'Yes'},
+    {'Age': '>40',   'Income': 'Medium', 'Student': 'No',  'Credit': 'Fair',     'Buys': 'Yes'},
+    {'Age': '>40',   'Income': 'Low',    'Student': 'Yes', 'Credit': 'Fair',     'Buys': 'Yes'},
+    {'Age': '>40',   'Income': 'Low',    'Student': 'Yes', 'Credit': 'Excellent','Buys': 'No'},
+    {'Age': '31..40','Income': 'Low',    'Student': 'Yes', 'Credit': 'Excellent','Buys': 'Yes'},
+    {'Age': '<=30',  'Income': 'Medium', 'Student': 'No',  'Credit': 'Fair',     'Buys': 'No'},
+    {'Age': '<=30',  'Income': 'Low',    'Student': 'Yes', 'Credit': 'Fair',     'Buys': 'Yes'},
+    {'Age': '>40',   'Income': 'Medium', 'Student': 'Yes', 'Credit': 'Fair',     'Buys': 'Yes'},
+]
+
+# Calculate entropy of a list of class labels
+def entropy(labels):
+    total = len(labels)
+    counts = Counter(labels)
+    return -sum((count / total) * math.log2(count / total) for count in counts.values())
+
+# Calculate information gain for a feature
+def info_gain(data, feature, target):
+    total_entropy = entropy([row[target] for row in data])
+    values = set(row[feature] for row in data)
+    weighted_entropy = 0
+    for value in values:
+        subset = [row for row in data if row[feature] == value]
+        weight = len(subset) / len(data)
+        weighted_entropy += weight * entropy([row[target] for row in subset])
+    return total_entropy - weighted_entropy
+
+# ID3 Algorithm
+def id3(data, features, target):
+    labels = [row[target] for row in data]
+    if len(set(labels)) == 1:
+        return labels[0]  # pure class
+    if not features:
+        return Counter(labels).most_common(1)[0][0]  # majority class
+
+    # Choose best feature
+    best = max(features, key=lambda f: info_gain(data, f, target))
+    tree = {best: {}}
+
+    for value in set(row[best] for row in data):
+        subset = [row for row in data if row[best] == value]
+        if not subset:
+            tree[best][value] = Counter(labels).most_common(1)[0][0]
+        else:
+            remaining_features = [f for f in features if f != best]
+            tree[best][value] = id3(subset, remaining_features, target)
+
+    return tree
+
+# Prediction
+def predict(tree, sample):
+    if not isinstance(tree, dict):
+        return tree
+    feature = next(iter(tree))
+    value = sample.get(feature)
+    if value in tree[feature]:
+        return predict(tree[feature][value], sample)
+    else:
+        return "Unknown"
+
+# Train and predict
+features = ['Age', 'Income', 'Student', 'Credit']
+target = 'Buys'
+decision_tree = id3(dataset, features, target)
+
+# Print the tree
+import pprint
+print("Decision Tree:")
+pprint.pprint(decision_tree)
+
+# Test sample
+test_sample = {'Age': '<=30', 'Income': 'Medium', 'Student': 'Yes', 'Credit': 'Fair'}
+result = predict(decision_tree, test_sample)
+print("\nPrediction for sample:", result)
